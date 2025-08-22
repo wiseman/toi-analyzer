@@ -38,6 +38,8 @@
 
 	onMount(() => {
 		window.addEventListener('resize', () => map?.resize());
+		// Initialize map immediately so it's visible before loading any KML
+		initMap(0, 0);
 	});
 
 	function showError(message: string) {
@@ -69,7 +71,7 @@
 		map = new maplibregl.Map({
 			container: mapDiv,
 			center: [centerLon, centerLat],
-			zoom: 13,
+			zoom: 2,
 			style: {
 				version: 8,
 				sources: {
@@ -444,17 +446,15 @@
 				{/if}
 			</div>
 			<div class="relative h-full overflow-hidden">
-				{#if mapLoaded}
-					<div class="absolute top-2 left-2 space-y-1 rounded bg-white p-2 text-xs shadow">
-						<div class="font-semibold">Base map</div>
-						<label class="flex items-center gap-1"
-							><input type="radio" value="osm" bind:group={basemap} /> OpenStreetMap</label
-						>
-						<label class="flex items-center gap-1"
-							><input type="radio" value="esri" bind:group={basemap} /> Esri World Imagery</label
-						>
-					</div>
-				{/if}
+				<div class="absolute top-2 left-2 z-10 space-y-1 rounded bg-white p-2 text-xs shadow">
+					<div class="font-semibold">Base map</div>
+					<label class="flex items-center gap-1"
+						><input type="radio" value="osm" bind:group={basemap} /> OpenStreetMap</label
+					>
+					<label class="flex items-center gap-1"
+						><input type="radio" value="esri" bind:group={basemap} /> Esri World Imagery</label
+					>
+				</div>
 				{#if loading}
 					<div class="absolute inset-0 flex flex-col items-center justify-center bg-white/80">
 						<svg
