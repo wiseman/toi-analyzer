@@ -36,9 +36,44 @@
 		const hours = Math.floor((totalSec % 86400) / 3600);
 		const minutes = Math.floor((totalSec % 3600) / 60);
 		const seconds = totalSec % 60;
-		return `${days.toString().padStart(2, '0')}:${hours.toString().padStart(2, '0')}:${minutes
+		return `${days.toString().padStart(2, '0')}:${hours
 			.toString()
-			.padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+			.padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+	}
+
+	function formatDate(ms: number | undefined): string {
+		if (!Number.isFinite(ms as number)) return '—';
+		try {
+			return new Date(ms as number).toLocaleDateString();
+		} catch {
+			return '—';
+		}
+	}
+
+	function getQualityLabel(quality: string): string {
+		switch (quality?.toLowerCase()) {
+			case 'high':
+				return 'High';
+			case 'medium':
+				return 'Med';
+			case 'low':
+				return 'Low';
+			default:
+				return '';
+		}
+	}
+
+	function getQualityDotClass(quality: string): string {
+		switch (quality?.toLowerCase()) {
+			case 'high':
+				return 'bg-green-500';
+			case 'medium':
+				return 'bg-yellow-500';
+			case 'low':
+				return 'bg-red-500';
+			default:
+				return 'bg-indigo-500';
+		}
 	}
 </script>
 
@@ -50,20 +85,29 @@
 			<div
 				class="toi-item cursor-pointer rounded-lg border border-indigo-200 bg-indigo-50 p-4 transition hover:shadow"
 				data-toi-index={idx}
+				role="button"
+				tabindex="0"
 				on:click={() => select(idx)}
+				on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && select(idx)}
 			>
-				<div class="toi-header mb-3 flex items-center gap-4">
-					<div
-						class="toi-number flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 font-bold text-white"
-					>
-						{idx + 1}
+				<div class="toi-header mb-3 flex items-top gap-4">
+					<div class="toi-number flex h-12 w-12 flex-col items-center justify-center">
+						<div class="text-base font-bold leading-none text-gray-800">{idx + 1}</div>
+						<div class={`mt-1 h-4 w-4 rounded-full ${getQualityDotClass(circle.quality)}`}></div>
+						{#if getQualityLabel(circle.quality)}
+							<div class="mt-0.5 text-[10px] font-medium leading-none text-gray-700">{getQualityLabel(circle.quality)}</div>
+						{/if}
 					</div>
 					<div class="toi-details grid gap-1">
 						<div class="toi-coords font-mono text-sm font-semibold text-gray-800">
 							{circle.center.lat.toFixed(6)}, {circle.center.lon.toFixed(6)}
 						</div>
-						<div class="text-sm text-gray-700">Radius: {circle.radius.toFixed(0)}m</div>
-						<div class="text-sm text-gray-700">Orbits: {circle.orbits ?? 0}</div>
+						<div class="text-xs text-gray-700 grid grid-cols-2 gap-x-6 gap-y-1">
+							<div><span class="font-semibold">Date</span>: {formatDate(circle.startMs)}</div>
+							<div><span class="font-semibold">Orbits</span>: {(circle.orbits ?? 0).toFixed(1)}</div>
+							<div><span class="font-semibold">Duration</span>: {formatDuration((circle.totalOnStationMs ?? circle.durationMs ?? 0) as number)}</div>
+							<div><span class="font-semibold">Radius</span>: {circle.radius.toFixed(0)}m</div>
+						</div>
 					</div>
 				</div>
 				{#if circle.sessions?.length}
