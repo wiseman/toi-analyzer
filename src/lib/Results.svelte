@@ -1,23 +1,28 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import type { Circle } from '$lib/types';
-	export let circles: Circle[] = [];
-	const dispatch = createEventDispatcher<{
-		select: number;
-		sessionHover: { toiIdx: number; sessionIdx: number };
-		sessionLeave: void;
-	}>();
+	
+	let { 
+		circles = [],
+		onSelect,
+		onSessionHover,
+		onSessionLeave
+	}: {
+		circles?: Circle[];
+		onSelect?: (idx: number) => void;
+		onSessionHover?: (data: { toiIdx: number; sessionIdx: number }) => void;
+		onSessionLeave?: () => void;
+	} = $props();
 
 	function select(idx: number) {
-		dispatch('select', idx);
+		onSelect?.(idx);
 	}
 
 	function hover(toiIdx: number, sessionIdx: number) {
-		dispatch('sessionHover', { toiIdx, sessionIdx });
+		onSessionHover?.({ toiIdx, sessionIdx });
 	}
 
 	function leave() {
-		dispatch('sessionLeave');
+		onSessionLeave?.();
 	}
 
 	function formatTime(ms: number): string {
@@ -78,64 +83,92 @@
 </script>
 
 {#if circles.length === 0}
-	<p class="text-center text-gray-600">No circling patterns detected</p>
+	<div class="flex h-32 items-center justify-center">
+		<p class="text-center text-gray-600">No circling patterns detected</p>
+	</div>
 {:else}
-	<div class="toi-list grid gap-4 overflow-auto">
-		{#each circles as circle, idx (idx)}
-			<div
-				class="toi-item cursor-pointer rounded-lg border border-indigo-200 bg-indigo-50 p-4 transition hover:shadow"
-				data-toi-index={idx}
-				role="button"
-				tabindex="0"
-				on:click={() => select(idx)}
-				on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && select(idx)}
-			>
-				<div class="toi-header mb-3 flex items-top gap-4">
-					<div class="toi-number flex h-12 w-12 flex-col items-center justify-center">
-						<div class="text-base font-bold leading-none text-gray-800">{idx + 1}</div>
-						<div class={`mt-1 h-4 w-4 rounded-full ${getQualityDotClass(circle.quality)}`}></div>
+	<div class="toi-list max-h-full overflow-y-auto">
+		<div class="grid gap-3 p-1">
+			{#each circles as circle, idx (idx)}
+				<div
+					class="toi-item grid cursor-pointer grid-cols-[auto_1fr] gap-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 transition-all duration-200 hover:border-indigo-300 hover:shadow-md"
+					data-toi-index={idx}
+					role="button"
+					tabindex="0"
+					onclick={() => select(idx)}
+					onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && select(idx)}
+				>
+					<!-- TOI Number and Quality Indicator -->
+					<div class="toi-badge grid place-items-center gap-1">
+						<div class="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
+							<span class="text-sm font-bold text-gray-800">{idx + 1}</span>
+						</div>
+						<div class={`h-2 w-2 rounded-full ${getQualityDotClass(circle.quality)}`}></div>
 						{#if getQualityLabel(circle.quality)}
-							<div class="mt-0.5 text-[10px] font-medium leading-none text-gray-700">{getQualityLabel(circle.quality)}</div>
+							<span class="text-[9px] font-medium leading-none text-gray-600">
+								{getQualityLabel(circle.quality)}
+							</span>
 						{/if}
 					</div>
-					<div class="toi-details grid gap-1">
-						<div class="toi-coords font-mono text-sm font-semibold text-gray-800">
-							{circle.center.lat.toFixed(6)}, {circle.center.lon.toFixed(6)}
+
+					<!-- TOI Information -->
+					<div class="toi-content min-w-0">
+						<!-- Primary Info Grid -->
+						<div class="mb-3 grid grid-cols-1 gap-2">
+							<div class="font-mono text-sm font-semibold text-gray-800">
+								{circle.center.lat.toFixed(6)}, {circle.center.lon.toFixed(6)}
+							</div>
+							
+							<div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700">
+								<div class="grid grid-cols-[auto_1fr] gap-1">
+									<span class="font-medium text-gray-500">Date:</span>
+									<span>{formatDate(circle.startMs)}</span>
+								</div>
+								<div class="grid grid-cols-[auto_1fr] gap-1">
+									<span class="font-medium text-gray-500">Orbits:</span>
+									<span>{(circle.orbits ?? 0).toFixed(1)}</span>
+								</div>
+								<div class="grid grid-cols-[auto_1fr] gap-1">
+									<span class="font-medium text-gray-500">Duration:</span>
+									<span>{formatDuration((circle.totalOnStationMs ?? circle.durationMs ?? 0) as number)}</span>
+								</div>
+								<div class="grid grid-cols-[auto_1fr] gap-1">
+									<span class="font-medium text-gray-500">Radius:</span>
+									<span>{circle.radius.toFixed(0)}m</span>
+								</div>
+							</div>
 						</div>
-						<div class="text-xs text-gray-700 grid grid-cols-2 gap-x-6 gap-y-1">
-							<div><span class="font-semibold">Date</span>: {formatDate(circle.startMs)}</div>
-							<div><span class="font-semibold">Orbits</span>: {(circle.orbits ?? 0).toFixed(1)}</div>
-							<div><span class="font-semibold">Duration</span>: {formatDuration((circle.totalOnStationMs ?? circle.durationMs ?? 0) as number)}</div>
-							<div><span class="font-semibold">Radius</span>: {circle.radius.toFixed(0)}m</div>
-						</div>
+
+						<!-- Sessions Table -->
+						{#if circle.sessions?.length}
+							<div class="border-t border-indigo-200 pt-2">
+								<div class="mb-1 text-xs font-medium text-gray-600">Session Details</div>
+								<div class="grid gap-1">
+									<div class="grid grid-cols-3 gap-2 text-[10px] font-medium text-gray-500">
+										<div>Start</div>
+										<div>End</div>
+										<div>Duration</div>
+									</div>
+									{#each circle.sessions as s, i (i)}
+										<div
+											data-session-index={i}
+											class="grid grid-cols-3 gap-2 rounded px-1 py-0.5 text-[10px] text-gray-700 transition-colors hover:bg-indigo-100"
+											role="row"
+											tabindex="0"
+											onmouseenter={() => hover(idx, i)}
+											onmouseleave={leave}
+										>
+											<div class="font-mono">{formatTime(s.startMs)}</div>
+											<div class="font-mono">{formatTime(s.endMs)}</div>
+											<div class="font-mono">{formatDuration(s.durationMs)}</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					</div>
 				</div>
-				{#if circle.sessions?.length}
-					<table class="sessions-table w-full text-xs">
-						<thead>
-							<tr>
-								<th class="text-left">Start</th>
-								<th class="text-left">End</th>
-								<th class="text-left">Duration</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each circle.sessions as s, i (i)}
-								<tr
-									data-session-index={i}
-									class="cursor-default hover:bg-indigo-100"
-									on:mouseenter={() => hover(idx, i)}
-									on:mouseleave={leave}
-								>
-									<td>{formatTime(s.startMs)}</td>
-									<td>{formatTime(s.endMs)}</td>
-									<td>{formatDuration(s.durationMs)}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				{/if}
-			</div>
-		{/each}
+			{/each}
+		</div>
 	</div>
 {/if}

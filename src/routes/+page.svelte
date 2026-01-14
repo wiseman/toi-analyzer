@@ -439,9 +439,9 @@
 				{#if resultsVisible}
 					<Results
 						circles={detectedCircles}
-						on:select={(e) => focusOnTOI(e.detail)}
-						on:sessionHover={(e) => highlightSession(e.detail.toiIdx, e.detail.sessionIdx)}
-						on:sessionLeave={clearSessionHighlight}
+						onSelect={focusOnTOI}
+						onSessionHover={(data: { toiIdx: number; sessionIdx: number }) => highlightSession(data.toiIdx, data.sessionIdx)}
+						onSessionLeave={clearSessionHighlight}
 					/>
 				{/if}
 			</div>
