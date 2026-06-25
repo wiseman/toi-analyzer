@@ -1,0 +1,9 @@
+node_modules
+build
+.svelte-kit
+.git
+.claude
+test-results
+e2e
+sample-kml
+*.md
