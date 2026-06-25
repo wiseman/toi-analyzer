@@ -12,7 +12,8 @@
 		analyzeCirclesMulti,
 		circlePolygon,
 		computeOnStationArcs,
-		computeOnStationFlightSegments
+		computeOnStationFlightSegments,
+		DEFAULT_TOLERANCES
 	} from '$lib/kmlCircleAnalyzer';
 	import type { Circle, Coord } from '$lib/types';
 
@@ -23,6 +24,17 @@
 	let loading = false;
 	let error = '';
 	let resultsVisible = false;
+
+	// Detection tolerances ("slop") — adjustable live via sliders. gapMax is edited
+	// in degrees in the UI and converted to radians for the analyzer at the single
+	// detection seam (runDetection).
+	const GAP_MAX_DEG_DEFAULT = (DEFAULT_TOLERANCES.gapMax * 180) / Math.PI;
+	let covMax = DEFAULT_TOLERANCES.covMax;
+	let aspectMax = DEFAULT_TOLERANCES.aspectMax;
+	let gapMaxDeg = GAP_MAX_DEG_DEFAULT;
+	// Parsed track from the last loaded file, reused when a slider re-runs detection
+	// so we never re-parse the KML on every drag.
+	let lastCoords: Coord[] | null = null;
 
 	const geo = {
 		flight: { type: 'FeatureCollection', features: [] as any[] },
@@ -378,67 +390,92 @@
 			if (coords.length < 50) {
 				throw new Error('Insufficient data points in KML file');
 			}
-			const circles = analyzeCirclesMulti(coords) as Circle[];
-			detectedCircles = circles;
-
-			const centerLat = coords.reduce((s, p) => s + p.lat, 0) / coords.length;
-			const centerLon = coords.reduce((s, p) => s + p.lon, 0) / coords.length;
-			initMap(centerLon, centerLat);
-
-			geo.flight = {
-				type: 'FeatureCollection',
-				features: [
-					{
-						type: 'Feature',
-						properties: {},
-						geometry: { type: 'LineString', coordinates: coords.map((c) => [c.lon, c.lat]) }
-					}
-				]
-			};
-
-			geo.toiCenters = {
-				type: 'FeatureCollection',
-				features: circles.map((c, i) => ({
-					type: 'Feature',
-					properties: {
-						id: i,
-						title: `TOI ${i + 1}`,
-						lat: c.center.lat,
-						lon: c.center.lon,
-						radius: c.radius,
-						quality: c.quality,
-						orbits: c.orbits || 0,
-						startMs: c.startMs,
-						endMs: c.endMs,
-						durationMs: c.durationMs,
-						sessions: c.sessions || [],
-						totalOnStationMs: c.totalOnStationMs || 0
-					},
-					geometry: { type: 'Point', coordinates: [c.center.lon, c.center.lat] }
-				}))
-			};
-
-			geo.toiCircles = {
-				type: 'FeatureCollection',
-				features: circles.map((c) => circlePolygon(c.center, c.radius))
-			};
-
-			geo.toiOnStationArcs = computeOnStationArcs(coords, circles);
-			geo.flightOnStation = computeOnStationFlightSegments(coords, circles);
-
-			updateDataOnMap();
-
-			if (coords.length > 0) {
-				const bounds = computeBoundsFromLineString(coords.map((c) => [c.lon, c.lat]));
-				map!.fitBounds(bounds, { padding: 50, duration: 800 });
-			}
-
-			resultsVisible = true;
+			lastCoords = coords;
+			runDetection(coords, true);
 		} catch (err) {
 			showError('Error analyzing KML: ' + (err as Error).message);
 		} finally {
 			loading = false;
 		}
+	}
+
+	// Detect circles on already-parsed coords and render them. `fit` re-fits the map
+	// to the track (first load only); slider-driven re-runs keep the current view.
+	function runDetection(coords: Coord[], fit: boolean) {
+		const tolerances = {
+			covMax,
+			aspectMax,
+			gapMax: (gapMaxDeg * Math.PI) / 180
+		};
+		const circles = analyzeCirclesMulti(coords, undefined, tolerances) as Circle[];
+		detectedCircles = circles;
+
+		const centerLat = coords.reduce((s, p) => s + p.lat, 0) / coords.length;
+		const centerLon = coords.reduce((s, p) => s + p.lon, 0) / coords.length;
+		initMap(centerLon, centerLat);
+
+		geo.flight = {
+			type: 'FeatureCollection',
+			features: [
+				{
+					type: 'Feature',
+					properties: {},
+					geometry: { type: 'LineString', coordinates: coords.map((c) => [c.lon, c.lat]) }
+				}
+			]
+		};
+
+		geo.toiCenters = {
+			type: 'FeatureCollection',
+			features: circles.map((c, i) => ({
+				type: 'Feature',
+				properties: {
+					id: i,
+					title: `TOI ${i + 1}`,
+					lat: c.center.lat,
+					lon: c.center.lon,
+					radius: c.radius,
+					quality: c.quality,
+					orbits: c.orbits || 0,
+					startMs: c.startMs,
+					endMs: c.endMs,
+					durationMs: c.durationMs,
+					sessions: c.sessions || [],
+					totalOnStationMs: c.totalOnStationMs || 0
+				},
+				geometry: { type: 'Point', coordinates: [c.center.lon, c.center.lat] }
+			}))
+		};
+
+		geo.toiCircles = {
+			type: 'FeatureCollection',
+			features: circles.map((c) => circlePolygon(c.center, c.radius))
+		};
+
+		geo.toiOnStationArcs = computeOnStationArcs(coords, circles);
+		geo.flightOnStation = computeOnStationFlightSegments(coords, circles);
+
+		updateDataOnMap();
+
+		if (fit) {
+			const bounds = computeBoundsFromLineString(coords.map((c) => [c.lon, c.lat]));
+			map!.fitBounds(bounds, { padding: 50, duration: 800 });
+		}
+
+		resultsVisible = true;
+	}
+
+	// Re-run detection on the already-loaded track when a tolerance slider changes,
+	// keeping the current map view (no re-fit).
+	function reanalyze() {
+		if (lastCoords) runDetection(lastCoords, false);
+	}
+
+	function resetTolerances() {
+		covMax = DEFAULT_TOLERANCES.covMax;
+		aspectMax = DEFAULT_TOLERANCES.aspectMax;
+		gapMaxDeg = GAP_MAX_DEG_DEFAULT;
+		reanalyze();
 	}
 </script>
 
@@ -456,10 +493,69 @@
 					<div class="text-sm text-red-600">{error}</div>
 				{/if}
 				{#if resultsVisible}
+					<div class="rounded border border-gray-200 p-3 text-xs">
+						<div class="mb-2 flex items-center justify-between">
+							<span class="font-semibold">Detection tolerance</span>
+							<button
+								type="button"
+								class="text-indigo-600 hover:underline"
+								onclick={resetTolerances}>Reset</button
+							>
+						</div>
+						<label class="mb-2 block">
+							<div class="flex justify-between">
+								<span>Radius wobble</span>
+								<span class="text-gray-500 tabular-nums">{(covMax * 100).toFixed(0)}%</span>
+							</div>
+							<input
+								type="range"
+								class="w-full"
+								min="0.05"
+								max="0.4"
+								step="0.01"
+								bind:value={covMax}
+								oninput={reanalyze}
+							/>
+						</label>
+						<label class="mb-2 block">
+							<div class="flex justify-between">
+								<span>Max elongation</span>
+								<span class="text-gray-500 tabular-nums">{aspectMax.toFixed(1)}:1</span>
+							</div>
+							<input
+								type="range"
+								class="w-full"
+								min="1.2"
+								max="4"
+								step="0.1"
+								bind:value={aspectMax}
+								oninput={reanalyze}
+							/>
+						</label>
+						<label class="block">
+							<div class="flex justify-between">
+								<span>Max gap</span>
+								<span class="text-gray-500 tabular-nums">{gapMaxDeg.toFixed(0)}°</span>
+							</div>
+							<input
+								type="range"
+								class="w-full"
+								min="20"
+								max="180"
+								step="5"
+								bind:value={gapMaxDeg}
+								oninput={reanalyze}
+							/>
+						</label>
+						<p class="mt-1 text-[11px] text-gray-400">
+							Higher = looser fit, more circles detected.
+						</p>
+					</div>
 					<Results
 						circles={detectedCircles}
 						onSelect={focusOnTOI}
-						onSessionHover={(data: { toiIdx: number; sessionIdx: number }) => highlightSession(data.toiIdx, data.sessionIdx)}
+						onSessionHover={(data: { toiIdx: number; sessionIdx: number }) =>
+							highlightSession(data.toiIdx, data.sessionIdx)}
 						onSessionLeave={clearSessionHighlight}
 					/>
 				{/if}
@@ -490,12 +586,16 @@
 						</div>
 						<div class="mt-1 font-medium text-gray-500">Detected circle (idealized)</div>
 						<div class="flex items-center gap-2">
-							<span class="inline-block h-0 w-6 border-t-2 border-dashed" style="border-color:#ea580c"
+							<span
+								class="inline-block h-0 w-6 border-t-2 border-dashed"
+								style="border-color:#ea580c"
 							></span>
 							<span>Fitted arc</span>
 						</div>
 						<div class="flex items-center gap-2">
-							<span class="inline-block h-0 w-6 border-t-2 border-dashed" style="border-color:#f97316"
+							<span
+								class="inline-block h-0 w-6 border-t-2 border-dashed"
+								style="border-color:#f97316"
 							></span>
 							<span>Fitted circle</span>
 						</div>

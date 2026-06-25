@@ -163,7 +163,16 @@ export function findCircleCenter(points) {
 	return { lon: (D * C - B * E) / denom, lat: (A * E - B * D) / denom };
 }
 
-export function detectCircles(points, windowSize = 25) {
+// Default detection tolerances ("slop"). Each is an independent gate; loosening
+// one admits more candidate circles along that axis.
+export const DEFAULT_TOLERANCES = {
+	covMax: 0.2, // max radius coefficient of variation (roundness wobble)
+	aspectMax: 2.5, // max bounding-box aspect ratio (elongation)
+	gapMax: Math.PI * 0.3 // max angular gap, radians (how incomplete the loop may be)
+};
+
+export function detectCircles(points, windowSize = 25, tolerances = {}) {
+	const { covMax, aspectMax, gapMax } = { ...DEFAULT_TOLERANCES, ...tolerances };
 	const circles = [];
 	for (let i = 0; i <= points.length - windowSize; i += Math.floor(windowSize / 4)) {
 		const segment = points.slice(i, i + windowSize);
@@ -176,14 +185,14 @@ export function detectCircles(points, windowSize = 25) {
 			distances.reduce((s, d) => s + (d - avgRadius) * (d - avgRadius), 0) / distances.length;
 		const stdDev = Math.sqrt(variance);
 		const cov = stdDev / avgRadius;
-		if (cov > 0.2) continue;
+		if (cov > covMax) continue;
 
 		const lons = segment.map((p) => p.lon),
 			lats = segment.map((p) => p.lat);
 		const lonRange = Math.max(...lons) - Math.min(...lons);
 		const latRange = Math.max(...lats) - Math.min(...lats);
 		const aspectRatio = Math.max(lonRange, latRange) / Math.min(lonRange, latRange);
-		if (aspectRatio > 2.5) continue;
+		if (aspectRatio > aspectMax) continue;
 
 		const angles = segment
 			.map((p) => Math.atan2(p.lat - center.lat, p.lon - center.lon))
@@ -191,7 +200,7 @@ export function detectCircles(points, windowSize = 25) {
 		let maxGap = 0;
 		for (let j = 1; j < angles.length; j++) maxGap = Math.max(maxGap, angles[j] - angles[j - 1]);
 		maxGap = Math.max(maxGap, 2 * Math.PI + angles[0] - angles[angles.length - 1]);
-		if (maxGap > Math.PI * 0.3) continue;
+		if (maxGap > gapMax) continue;
 
 		circles.push({
 			center,
@@ -288,9 +297,13 @@ export function estimateOrbitCount(points, center, radius) {
 	return total / (2 * Math.PI);
 }
 
-export function analyzeCirclesMulti(points, windowSizes = [20, 40, 80, 160, 320, 640, 1280]) {
+export function analyzeCirclesMulti(
+	points,
+	windowSizes = [20, 40, 80, 160, 320, 640, 1280],
+	tolerances = {}
+) {
 	let all = [];
-	for (const ws of windowSizes) all = all.concat(detectCircles(points, ws));
+	for (const ws of windowSizes) all = all.concat(detectCircles(points, ws, tolerances));
 	const merged = mergeCircles(all);
 	return merged.map((c) => {
 		const startIdx = Math.max(0, Math.min(points.length - 1, c.startIndex ?? 0));
@@ -584,9 +597,13 @@ export function computeOnStationFlightSegments(points, circles) {
 }
 
 // Convenience: end-to-end analysis from raw KML text
-export function analyzeKMLText(kmlText, windowSizes = [20, 40, 80, 160, 320, 640, 1280]) {
+export function analyzeKMLText(
+	kmlText,
+	windowSizes = [20, 40, 80, 160, 320, 640, 1280],
+	tolerances = {}
+) {
 	const coords = parseKML(kmlText);
-	const circles = analyzeCirclesMulti(coords, windowSizes);
+	const circles = analyzeCirclesMulti(coords, windowSizes, tolerances);
 	const toiCentersGeoJSON = {
 		type: 'FeatureCollection',
 		features: circles.map((c, i) => ({
