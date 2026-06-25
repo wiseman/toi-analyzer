@@ -82,35 +82,37 @@
 		addOrUpdateSource('toi-arcs', data.toiOnStationArcsGeoJSON);
 
 		if (!map.getLayer('flight-line')) {
+			// Actual GPS track — solid cool blues.
 			map.addLayer({
 				id: 'flight-line',
 				type: 'line',
 				source: 'flight',
-				paint: { 'line-color': '#667eea', 'line-width': 2 }
+				paint: { 'line-color': '#2563eb', 'line-width': 2 }
 			});
 			map.addLayer({
 				id: 'flight-onstation',
 				type: 'line',
 				source: 'flight-onstation',
-				paint: { 'line-color': '#28a745', 'line-width': 3 }
+				paint: { 'line-color': '#06b6d4', 'line-width': 3 }
 			});
+			// Idealized / fitted geometry — dashed warm oranges so it reads as computed, not measured.
 			map.addLayer({
 				id: 'toi-circles-fill',
 				type: 'fill',
 				source: 'toi-circles',
-				paint: { 'fill-color': '#667eea', 'fill-opacity': 0.08 }
+				paint: { 'fill-color': '#f97316', 'fill-opacity': 0.08 }
 			});
 			map.addLayer({
 				id: 'toi-circles-outline',
 				type: 'line',
 				source: 'toi-circles',
-				paint: { 'line-color': '#667eea', 'line-width': 1 }
+				paint: { 'line-color': '#f97316', 'line-width': 1.5, 'line-dasharray': [2, 2] }
 			});
 			map.addLayer({
 				id: 'toi-arcs',
 				type: 'line',
 				source: 'toi-arcs',
-				paint: { 'line-color': '#28a745', 'line-width': 3 }
+				paint: { 'line-color': '#ea580c', 'line-width': 2.5, 'line-dasharray': [2, 2] }
 			});
 			map.addLayer({
 				id: 'toi-centers',
@@ -168,6 +170,36 @@
 		<label class="flex items-center gap-1"
 			><input type="radio" value="esri" bind:group={baseLayer} /> Esri World Imagery</label
 		>
+	</div>
+	<div class="absolute bottom-2 left-2 z-10 space-y-1.5 rounded bg-white p-2 text-xs shadow">
+		<div class="font-semibold">Legend</div>
+		<div class="font-medium text-gray-500">Actual track</div>
+		<div class="flex items-center gap-2">
+			<span class="inline-block h-0 w-6 border-t-2" style="border-color:#2563eb"></span>
+			<span>Flight path</span>
+		</div>
+		<div class="flex items-center gap-2">
+			<span class="inline-block h-0 w-6 border-t-[3px]" style="border-color:#06b6d4"></span>
+			<span>On-station (circling)</span>
+		</div>
+		<div class="font-medium text-gray-500">Detected circle (idealized)</div>
+		<div class="flex items-center gap-2">
+			<span class="inline-block h-0 w-6 border-t-2 border-dashed" style="border-color:#ea580c"
+			></span>
+			<span>Fitted arc</span>
+		</div>
+		<div class="flex items-center gap-2">
+			<span class="inline-block h-0 w-6 border-t-2 border-dashed" style="border-color:#f97316"
+			></span>
+			<span>Fitted circle</span>
+		</div>
+		<div class="flex items-center gap-2">
+			<span
+				class="inline-block h-3 w-3 rounded-full border-2 border-white"
+				style="background:#28a745;box-shadow:0 0 0 1px #ccc"
+			></span>
+			<span>Center (color = quality)</span>
+		</div>
 	</div>
 	<div bind:this={mapContainer} class="h-full w-full"></div>
 </div>

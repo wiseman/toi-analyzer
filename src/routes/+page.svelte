@@ -132,39 +132,51 @@
 		map.addSource('session-arc-hl', { type: 'geojson', data: geo.sessionArcHighlight });
 		map.addSource('session-flight-hl', { type: 'geojson', data: geo.sessionFlightHighlight });
 
+		// --- Actual GPS track: solid, cool blues ---
 		map.addLayer({
 			id: 'flight-line',
 			type: 'line',
 			source: 'flight',
-			paint: { 'line-color': '#667eea', 'line-width': 2, 'line-opacity': 0.6 }
+			paint: { 'line-color': '#2563eb', 'line-width': 2, 'line-opacity': 0.6 }
 		});
 
 		map.addLayer({
 			id: 'flight-onstation',
 			type: 'line',
 			source: 'flight-onstation',
-			paint: { 'line-color': '#28a745', 'line-width': 3, 'line-opacity': 0.95 }
+			paint: { 'line-color': '#06b6d4', 'line-width': 3, 'line-opacity': 0.95 }
 		});
 
+		// --- Idealized / fitted geometry: dashed, warm oranges (reads as computed, not measured) ---
 		map.addLayer({
 			id: 'toi-circles-fill',
 			type: 'fill',
 			source: 'toi-circles',
-			paint: { 'fill-color': '#667eea', 'fill-opacity': 0.08 }
+			paint: { 'fill-color': '#f97316', 'fill-opacity': 0.08 }
 		});
 
 		map.addLayer({
 			id: 'toi-circles-outline',
 			type: 'line',
 			source: 'toi-circles',
-			paint: { 'line-color': '#667eea', 'line-width': 1, 'line-opacity': 0.3 }
+			paint: {
+				'line-color': '#f97316',
+				'line-width': 1.5,
+				'line-opacity': 0.7,
+				'line-dasharray': [2, 2]
+			}
 		});
 
 		map.addLayer({
 			id: 'toi-onstation-arcs',
 			type: 'line',
 			source: 'toi-onstation',
-			paint: { 'line-color': '#28a745', 'line-width': 3, 'line-opacity': 0.9 }
+			paint: {
+				'line-color': '#ea580c',
+				'line-width': 2.5,
+				'line-opacity': 0.9,
+				'line-dasharray': [2, 2]
+			}
 		});
 
 		map.addLayer({
@@ -188,18 +200,25 @@
 			}
 		});
 
+		// --- Selected-session highlight: magenta, distinct from both the blue (actual) and
+		// orange (idealized) families so the chosen session pops without ambiguity ---
 		map.addLayer({
 			id: 'session-flight-hl',
 			type: 'line',
 			source: 'session-flight-hl',
-			paint: { 'line-color': '#ff9800', 'line-width': 6, 'line-opacity': 0.95 }
+			paint: { 'line-color': '#ec4899', 'line-width': 6, 'line-opacity': 0.95 }
 		});
 
 		map.addLayer({
 			id: 'session-arc-hl',
 			type: 'line',
 			source: 'session-arc-hl',
-			paint: { 'line-color': '#ff5722', 'line-width': 6, 'line-opacity': 0.95 }
+			paint: {
+				'line-color': '#be185d',
+				'line-width': 6,
+				'line-opacity': 0.95,
+				'line-dasharray': [2, 2]
+			}
 		});
 
 		map.on('click', 'toi-centers-circles', (e) => {
@@ -455,6 +474,45 @@
 						><input type="radio" value="esri" bind:group={basemap} /> Esri World Imagery</label
 					>
 				</div>
+				{#if resultsVisible}
+					<div
+						class="absolute bottom-2 left-2 z-10 space-y-1.5 rounded bg-white p-2 text-xs shadow"
+					>
+						<div class="font-semibold">Legend</div>
+						<div class="font-medium text-gray-500">Actual track</div>
+						<div class="flex items-center gap-2">
+							<span class="inline-block h-0 w-6 border-t-2" style="border-color:#2563eb"></span>
+							<span>Flight path</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="inline-block h-0 w-6 border-t-[3px]" style="border-color:#06b6d4"></span>
+							<span>On-station (circling)</span>
+						</div>
+						<div class="mt-1 font-medium text-gray-500">Detected circle (idealized)</div>
+						<div class="flex items-center gap-2">
+							<span class="inline-block h-0 w-6 border-t-2 border-dashed" style="border-color:#ea580c"
+							></span>
+							<span>Fitted arc</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="inline-block h-0 w-6 border-t-2 border-dashed" style="border-color:#f97316"
+							></span>
+							<span>Fitted circle</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span
+								class="inline-block h-3 w-3 rounded-full border-2 border-white"
+								style="background:#28a745;box-shadow:0 0 0 1px #ccc"
+							></span>
+							<span>Center (color = quality)</span>
+						</div>
+						<div class="mt-1 font-medium text-gray-500">Selected session</div>
+						<div class="flex items-center gap-2">
+							<span class="inline-block h-0 w-6 border-t-[3px]" style="border-color:#ec4899"></span>
+							<span>Highlighted</span>
+						</div>
+					</div>
+				{/if}
 				{#if loading}
 					<div class="absolute inset-0 flex flex-col items-center justify-center bg-white/80">
 						<svg
