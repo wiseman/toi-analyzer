@@ -1,38 +1,14 @@
-# sv
+# toi-analyzer
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A web app that loads aircraft flight tracks from KML and finds circular (loitering/orbit) patterns, visualizing them on a map.
 
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+## Run
 
 ```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+pnpm install
+pnpm dev
 ```
 
-## Developing
+## How it detects circles
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+It slides windows of varying sizes over the track and fits a circle to each window using least-squares, then keeps only fits that are genuinely circular — roughly constant radius, low elongation, and points spread around the full circle rather than clustered in an arc. Overlapping detections from different windows are merged into single orbits, and timestamps are used to estimate orbit counts and on-station time. See [SPEC.md](SPEC.md) for full detail.
